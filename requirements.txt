@@ -1,6 +1,5 @@
 openai
 aiohttp
 websockets
-pydub
 numpy
 imageio-ffmpeg
