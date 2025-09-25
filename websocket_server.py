@@ -4,22 +4,30 @@ import json
 import base64
 import io
 import os
-from pydub import AudioSegment
-import imageio_ffmpeg as ffmpeg
+import subprocess
 from openai import OpenAI
-
-# Make pydub use the embedded ffmpeg
-AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.getenv("PORT", 8765))
 openai = OpenAI(api_key=OPENAI_API_KEY)
 
-# Convert AI audio to PCM 16-bit mono 8kHz for Twilio
+# Convert any audio bytes to PCM 16-bit mono 8kHz using ffmpeg
 def convert_to_pcm(audio_bytes):
-    audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
-    audio = audio.set_channels(1).set_frame_rate(8000).set_sample_width(2)
-    return audio.raw_data
+    process = subprocess.run(
+        [
+            "ffmpeg",
+            "-i", "pipe:0",
+            "-f", "s16le",
+            "-acodec", "pcm_s16le",
+            "-ac", "1",
+            "-ar", "8000",
+            "pipe:1"
+        ],
+        input=audio_bytes,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL
+    )
+    return process.stdout
 
 async def handle_stream(websocket):
     async for message in websocket:
