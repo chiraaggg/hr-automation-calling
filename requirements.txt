@@ -1,3 +1,5 @@
 openai
 aiohttp
 websockets
+pydub
+numpy
