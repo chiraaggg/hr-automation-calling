@@ -1,11 +1,12 @@
+import os
 import asyncio
 import websockets
 import json
 import base64
 from divya_prompt import parse_candidate_response
-from openai import OpenAI
 
-openai = OpenAI(api_key="OPENAI_API_KEY")
+PORT = int(os.getenv("PORT", 8765))
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 async def handle_stream(websocket):
     async for message in websocket:
@@ -14,18 +15,17 @@ async def handle_stream(websocket):
             audio_b64 = data["media"]["payload"]
             audio_bytes = base64.b64decode(audio_b64)
 
-            # 1️⃣ Send audio to OpenAI Realtime for transcription
-            transcript = await openai.realtime.transcribe(audio_bytes)
+            # Send audio_bytes to OpenAI Realtime via proper WebSocket flow
+            # Receive AI audio and transcript
+            ai_audio_bytes = b"... processed AI audio ..."
+            transcript_text = "... processed transcript ..."
 
-            # 2️⃣ Get AI response using Divya prompt
-            ai_text = await openai.realtime.generate(transcript, prompt="Divya prompt here")
+            await websocket.send(json.dumps({
+                "event": "media",
+                "media": {"payload": base64.b64encode(ai_audio_bytes).decode("utf-8")}
+            }))
 
-            # 3️⃣ Convert AI text response to audio and send back
-            ai_audio = await openai.realtime.text_to_speech(ai_text)
-            await websocket.send(ai_audio)
-
-            # 4️⃣ Extract candidate info
-            candidate_info = parse_candidate_response(transcript)
+            candidate_info = parse_candidate_response(transcript_text)
             print("Candidate info:", candidate_info)
 
         elif data.get("event") == "start":
@@ -34,8 +34,9 @@ async def handle_stream(websocket):
             print("Stream stopped")
 
 async def main():
-    async with websockets.serve(handle_stream, "0.0.0.0", 8765):
-        print("WebSocket server listening on port 8765")
-        await asyncio.Future()  # run forever
+    async with websockets.serve(handle_stream, "0.0.0.0", PORT):
+        print(f"WebSocket server listening on port {PORT}")
+        await asyncio.Future()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
