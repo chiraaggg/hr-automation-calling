@@ -3,9 +3,13 @@ import websockets
 import json
 import base64
 import io
-from pydub import AudioSegment
-from openai import OpenAI
 import os
+from pydub import AudioSegment
+import imageio_ffmpeg as ffmpeg
+from openai import OpenAI
+
+# Make pydub use the embedded ffmpeg
+AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.getenv("PORT", 8765))
@@ -39,7 +43,7 @@ async def handle_stream(websocket):
             )
             ai_text = ai_resp.choices[0].message.content
 
-            # 3️⃣ TTS
+            # 3️⃣ Convert AI text to speech
             tts_resp = await openai.audio.speech.create(
                 model="gpt-4o-mini-tts",
                 voice="alloy",
@@ -47,7 +51,7 @@ async def handle_stream(websocket):
             )
             ai_audio_bytes = tts_resp.read()
 
-            # 4️⃣ Convert to PCM
+            # 4️⃣ Convert to PCM for Twilio
             pcm_bytes = convert_to_pcm(ai_audio_bytes)
 
             # 5️⃣ Send back to Twilio
